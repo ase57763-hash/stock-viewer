@@ -238,7 +238,7 @@ async def screen(market: str = Query("TW"), sectors: str = Query("")):
 
     results = []
     end = datetime.now(); start = end-timedelta(days=200)
-    for ticker, sector in list(tickers.items())[:15]:  # 限制15檔加快速度
+    for ticker, sector in list(tickers.items())[:5]:
         try:
             df = yf.download(ticker,start=start,end=end,progress=False,auto_adjust=True)
             if df.empty or len(df)<85: continue
