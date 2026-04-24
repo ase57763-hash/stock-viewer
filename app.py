@@ -238,7 +238,7 @@ async def screen(market: str = Query("TW"), sectors: str = Query("")):
 
     results = []
     end = datetime.now(); start = end-timedelta(days=200)
-    for ticker, sector in list(tickers.items())[:30]:
+    for ticker, sector in list(tickers.items())[:15]:  # 限制15檔加快速度
         try:
             df = yf.download(ticker,start=start,end=end,progress=False,auto_adjust=True)
             if df.empty or len(df)<85: continue
@@ -266,7 +266,7 @@ async def screen(market: str = Query("TW"), sectors: str = Query("")):
                 "sector":sector,"signal":sig,"close":round(float(c.iloc[-1]),2),
                 "rsi":round(rL,1),"ma17":round(m17L,2),"ma78":round(m78L,2),
                 "gap_pct":round(gap,2),"cond_ma":cma,"cond_macd":cmacd,"cond_rsi":crsi})
-            time.sleep(0.15)
+            time.sleep(0.05)
         except: continue
     sig_order={"條件三中三":1,"條件三中二":2,"即將黃金交叉":3,"即將死亡交叉":4}
     results.sort(key=lambda x:(sig_order.get(x["signal"],9),-x["rsi"]))
@@ -284,7 +284,7 @@ async def health():
             "time":datetime.now().isoformat()}
 
 # ── 靜態前端 ────────────────────────────────────
-static_dir = Path(__file__).parent / "static"
+static_dir = Path(__file__).parent.parent / "static"
 if static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
