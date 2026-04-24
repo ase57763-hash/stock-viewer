@@ -284,7 +284,7 @@ async def health():
             "time":datetime.now().isoformat()}
 
 # ── 靜態前端 ────────────────────────────────────
-static_dir = Path(__file__).parent.parent / "static"
+static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
