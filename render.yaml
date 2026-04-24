@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: stock-viewer
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: FINMIND_TOKEN
+        sync: false        # 在 Render 後台手動填入，不存進 git
+    autoDeploy: true

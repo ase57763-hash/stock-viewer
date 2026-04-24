@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<title>看盤系統</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+:root{
+  --bg:#0b0d12;--bg2:#111318;--bg3:#181b24;--bd:#1e2130;--bd2:#252a38;
+  --text:#dde3f0;--muted:#4e5a78;--hint:#8896b0;
+  --up:#22c55e;--dn:#ef4444;
+  --ma17:#f59e0b;--ma78:#818cf8;--dif:#38bdf8;--dea:#fb923c;
+  --rsi:#c084fc;--cci:#34d399;
+  --for:#34d399;--inv:#f472b6;--dlr:#a78bfa;
+  --acc:#3b82f6;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);
+  font-family:'Noto Sans TC',sans-serif;font-size:13px;overflow:hidden}
+
+/* ═══ TOP BAR ═══ */
+.topbar{display:flex;align-items:center;gap:8px;padding:0 14px;
+  height:46px;background:var(--bg2);border-bottom:1px solid var(--bd);
+  position:relative;z-index:100;flex-shrink:0}
+.logo{font-family:'JetBrains Mono',monospace;font-weight:600;font-size:14px;
+  color:var(--acc);letter-spacing:1px;white-space:nowrap}
+.tabs{display:flex;gap:2px;background:var(--bg3);border-radius:7px;padding:3px}
+.tab{padding:4px 12px;border:none;background:transparent;color:var(--muted);
+  border-radius:5px;cursor:pointer;font-size:11px;font-family:'Noto Sans TC',sans-serif;
+  transition:all .15s;white-space:nowrap}
+.tab.active{background:var(--acc);color:#fff;font-weight:500}
+.mkt-tabs{display:flex;gap:2px;background:var(--bg3);border-radius:7px;padding:3px}
+.mkt{padding:4px 10px;border:none;background:transparent;color:var(--muted);
+  border-radius:5px;cursor:pointer;font-size:11px;font-family:'Noto Sans TC',sans-serif;transition:all .15s}
+.mkt.active{background:var(--bd2);color:var(--text)}
+.search-box{display:flex;gap:5px;margin-left:auto}
+.search-box input{background:var(--bg3);border:1px solid var(--bd);border-radius:6px;
+  padding:5px 9px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;
+  outline:none;width:140px;transition:border-color .15s}
+.search-box input:focus{border-color:var(--acc)}
+.search-box button,.btn{background:var(--acc);border:none;border-radius:6px;padding:5px 11px;
+  color:#fff;cursor:pointer;font-size:11px;transition:opacity .15s}
+.btn:hover,.search-box button:hover{opacity:.85}
+.btn.ghost{background:transparent;border:1px solid var(--bd);color:var(--hint)}
+.btn.ghost:hover{border-color:var(--acc);color:var(--acc)}
+.period-btns{display:flex;gap:2px}
+.pb{padding:4px 8px;border:1px solid var(--bd);background:transparent;color:var(--muted);
+  border-radius:5px;cursor:pointer;font-size:10px;font-family:'JetBrains Mono',monospace;transition:all .15s}
+.pb.active{border-color:var(--acc);color:var(--acc)}
+
+/* ═══ LAYOUT ═══ */
+.wrap{display:flex;height:calc(100vh - 46px);overflow:hidden}
+
+/* ═══ LEFT PANEL ═══ */
+.left{width:300px;min-width:260px;background:var(--bg2);border-right:1px solid var(--bd);
+  display:flex;flex-direction:column;flex-shrink:0}
+.ph{padding:8px 12px;border-bottom:1px solid var(--bd);display:flex;
+  align-items:center;justify-content:space-between;flex-shrink:0}
+.ph .lbl{font-size:11px;color:var(--hint);font-weight:500}
+.filter-area{padding:8px 12px;border-bottom:1px solid var(--bd);flex-shrink:0}
+.fl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+.chip{font-size:10px;padding:3px 8px;border-radius:99px;border:1px solid var(--bd2);
+  background:transparent;color:var(--muted);cursor:pointer;transition:all .15s;white-space:nowrap}
+.chip.on{background:rgba(59,130,246,.12);color:var(--acc);border-color:rgba(59,130,246,.4)}
+.result-area{flex:1;overflow-y:auto;padding:5px 6px}
+.result-area::-webkit-scrollbar{width:3px}
+.result-area::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
+.scard{display:flex;align-items:center;gap:7px;padding:8px 9px;border-radius:7px;
+  border:1px solid transparent;cursor:pointer;transition:all .15s;margin-bottom:3px}
+.scard:hover{background:var(--bg3);border-color:var(--bd)}
+.scard.sel{background:rgba(59,130,246,.07);border-color:rgba(59,130,246,.4)}
+.sc-id{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;min-width:50px}
+.sc-sec{font-size:10px;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sc-sig{font-size:9px;padding:2px 6px;border-radius:99px;font-weight:500;white-space:nowrap}
+.sc-sig.s3{background:rgba(34,197,94,.12);color:#22c55e}
+.sc-sig.s2{background:rgba(59,130,246,.12);color:#60a5fa}
+.sc-sig.sg{background:rgba(251,191,36,.12);color:#fbbf24}
+.sc-sig.sd{background:rgba(239,68,68,.12);color:#ef4444}
+.sc-rsi{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted)}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:180px;color:var(--muted);gap:6px;font-size:11px}
+
+/* ═══ MAIN CHART AREA ═══ */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.info-bar{display:flex;align-items:center;gap:12px;padding:6px 14px;
+  background:var(--bg2);border-bottom:1px solid var(--bd);flex-shrink:0;flex-wrap:wrap}
+.stk-name{font-size:15px;font-weight:700}
+.stk-id{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted)}
+.price{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:600}
+.price.up{color:var(--up)}.price.dn{color:var(--dn)}
+.chg{font-family:'JetBrains Mono',monospace;font-size:11px;padding:2px 7px;border-radius:5px}
+.chg.up{background:rgba(34,197,94,.1);color:var(--up)}
+.chg.dn{background:rgba(239,68,68,.1);color:var(--dn)}
+.ist{display:flex;flex-direction:column}
+.ist .il{font-size:9px;color:var(--muted)}.ist .iv{font-family:'JetBrains Mono',monospace;font-size:11px}
+.sig-pills{margin-left:auto;display:flex;gap:4px;flex-wrap:wrap}
+.spill{font-size:10px;padding:2px 8px;border-radius:99px;border:1px solid;font-weight:500}
+.spill.s3{background:rgba(34,197,94,.1);color:#22c55e;border-color:#22c55e}
+.spill.s2{background:rgba(59,130,246,.1);color:#60a5fa;border-color:#60a5fa}
+.spill.sg{background:rgba(251,191,36,.1);color:#fbbf24;border-color:#fbbf24}
+.spill.sd{background:rgba(239,68,68,.1);color:#ef4444;border-color:#ef4444}
+
+.charts-wrap{display:flex;flex:1;overflow:hidden;min-height:0}
+.charts-col{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:5px;
+  padding:8px 10px;min-width:0}
+.charts-col::-webkit-scrollbar{width:3px}
+.charts-col::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
+
+/* chart boxes */
+.cbox{background:var(--bg2);border:1px solid var(--bd);border-radius:8px;overflow:hidden;flex-shrink:0}
+.chdr{display:flex;align-items:center;gap:6px;padding:5px 10px;
+  border-bottom:1px solid var(--bd);font-size:10px;color:var(--muted)}
+.chdr .tt{font-size:11px;font-weight:500;color:var(--hint)}
+.ld{width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0}
+.cbody{padding:5px 8px 8px;position:relative}
+
+/* ═══ RIGHT SIDEBAR: CHIP ═══ */
+.chip-side{width:180px;min-width:160px;background:var(--bg2);border-left:1px solid var(--bd);
+  overflow-y:auto;padding:10px 9px;display:flex;flex-direction:column;gap:10px;flex-shrink:0}
+.chip-side::-webkit-scrollbar{width:3px}
+.chip-side::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
+.slbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px}
+.crow{display:flex;justify-content:space-between;align-items:center;padding:5px 7px;
+  border-radius:6px;background:var(--bg3);margin-bottom:3px}
+.crow .cl{font-size:10px;color:var(--muted)}.crow .cv{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600}
+.cv.buy{color:var(--up)}.cv.sell{color:var(--dn)}
+.bwrap{margin-bottom:6px}
+.blbl{display:flex;justify-content:space-between;font-size:9px;margin-bottom:3px}
+.bbg{height:4px;background:var(--bg3);border-radius:99px;overflow:hidden}
+.bfill{height:100%;border-radius:99px;transition:width .6s}
+.divr{border:none;border-top:1px solid var(--bd);margin:2px 0}
+.cond-row{display:flex;justify-content:space-between;align-items:center;
+  padding:4px 7px;border-radius:6px;background:var(--bg3);margin-bottom:3px}
+.cond-row .cn{font-size:9px;color:var(--muted)}.cond-row .cv2{font-size:12px}
+
+/* ═══ LOADING ═══ */
+.overlay{position:fixed;inset:0;background:rgba(11,13,18,.8);display:flex;
+  flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:9999}
+.spin{width:28px;height:28px;border:2px solid var(--bd);border-top-color:var(--acc);
+  border-radius:50%;animation:sp .65s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.overlay.hide{display:none}
+.lmsg{color:var(--muted);font-size:12px}
+
+/* ═══ RESPONSIVE ═══ */
+@media(max-width:700px){
+  .left{width:260px;min-width:200px}
+  .chip-side{width:140px;min-width:120px}
+}
+@media(max-width:560px){
+  .left{display:none}.chip-side{display:none}
+  .search-box input{width:100px}
+}
+
+/* misc */
+.tag{font-size:9px;padding:1px 5px;border-radius:3px;background:var(--bg3);color:var(--muted);margin-left:2px}
+</style>
+</head>
+<body>
+
+<div class="overlay hide" id="overlay">
+  <div class="spin"></div>
+  <div class="lmsg" id="lmsg">載入中...</div>
+</div>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo">◈ 看盤</div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('screener',this)">選股結果</button>
+    <button class="tab" onclick="switchTab('chart',this)">手動查詢</button>
+  </div>
+
+  <div class="mkt-tabs" id="mktTabs">
+    <button class="mkt active" onclick="setMkt('TW',this)">🇹🇼 台股</button>
+    <button class="mkt" onclick="setMkt('US',this)">🇺🇸 美股</button>
+  </div>
+
+  <div class="search-box">
+    <input id="tickerInp" placeholder="代碼查詢"
+           onkeydown="if(event.key==='Enter')manualSearch()">
+    <button onclick="manualSearch()">查</button>
+  </div>
+
+  <div class="period-btns">
+    <button class="pb active" onclick="setPeriod('3mo',this)">3M</button>
+    <button class="pb" onclick="setPeriod('6mo',this)">6M</button>
+    <button class="pb" onclick="setPeriod('1y',this)">1Y</button>
+    <button class="pb" onclick="setPeriod('2y',this)">2Y</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- LEFT: SCREENER -->
+  <div class="left">
+    <div class="ph">
+      <span class="lbl" id="screenLbl">選股結果</span>
+      <button class="btn" id="runBtn" onclick="runScreen()">
+        <span id="runTxt">▶ 執行選股</span>
+      </button>
+    </div>
+
+    <div class="filter-area">
+      <div class="fl">族群篩選</div>
+      <div class="chips" id="sectorChips"></div>
+      <div class="fl" style="margin-top:4px">訊號篩選</div>
+      <div class="chips">
+        <div class="chip on" id="f_s3" onclick="toggleSigFilter('s3',this)">★ 三中三</div>
+        <div class="chip on" id="f_s2" onclick="toggleSigFilter('s2',this)">◎ 三中二</div>
+        <div class="chip on" id="f_sg" onclick="toggleSigFilter('sg',this)">▲ 即將黃金</div>
+        <div class="chip on" id="f_sd" onclick="toggleSigFilter('sd',this)">▼ 即將死亡</div>
+      </div>
+    </div>
+
+    <div class="result-area" id="resultArea">
+      <div class="empty">
+        <div style="font-size:24px;opacity:.2">◈</div>
+        <div>點「執行選股」開始篩選</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN CHART -->
+  <div class="main">
+    <!-- INFO BAR -->
+    <div class="info-bar" id="infoBar">
+      <div>
+        <div class="stk-name" id="stkName">請選擇或查詢股票</div>
+        <div class="stk-id" id="stkId">—</div>
+      </div>
+      <div class="price" id="priceEl">—</div>
+      <div class="chg" id="chgEl">—</div>
+      <div class="ist"><div class="il">開盤</div><div class="iv" id="iOpen">—</div></div>
+      <div class="ist"><div class="il">最高</div><div class="iv" id="iHigh">—</div></div>
+      <div class="ist"><div class="il">最低</div><div class="iv" id="iLow">—</div></div>
+      <div class="ist"><div class="il">成交量</div><div class="iv" id="iVol">—</div></div>
+      <div class="sig-pills" id="sigPills"></div>
+    </div>
+
+    <div class="charts-wrap">
+      <!-- CHARTS COL -->
+      <div class="charts-col" id="chartsCol">
+
+        <!-- K線 + 均線 -->
+        <div class="cbox">
+          <div class="chdr">
+            <span class="tt">K 線 ＋ 均線</span>
+            <span class="ld" style="background:var(--ma17)"></span><span>MA17</span>
+            <span class="ld" style="background:var(--ma78)"></span><span>MA78（虛）</span>
+          </div>
+          <div class="cbody" style="height:220px">
+            <canvas id="cCandle" role="img" aria-label="K線均線圖"></canvas>
+          </div>
+        </div>
+
+        <!-- 成交量 -->
+        <div class="cbox">
+          <div class="chdr">
+            <span class="tt">成交量</span>
+            <span style="color:var(--up)">■</span>漲日
+            <span style="color:var(--dn)">■</span>跌日
+          </div>
+          <div class="cbody" style="height:80px">
+            <canvas id="cVol" role="img" aria-label="成交量圖"></canvas>
+          </div>
+        </div>
+
+        <!-- MACD -->
+        <div class="cbox">
+          <div class="chdr">
+            <span class="tt">MACD</span>
+            <span class="ld" style="background:var(--dif)"></span><span>DIF</span>
+            <span class="ld" style="background:var(--dea)"></span><span>DEA</span>
+            <span class="tag">柱=MACD</span>
+          </div>
+          <div class="cbody" style="height:100px">
+            <canvas id="cMACD" role="img" aria-label="MACD圖"></canvas>
+          </div>
+        </div>
+
+        <!-- RSI -->
+        <div class="cbox">
+          <div class="chdr">
+            <span class="tt">RSI 14</span>
+            <span style="color:var(--dn)">— 80超買</span>
+            <span style="color:var(--up)">— 20超賣</span>
+          </div>
+          <div class="cbody" style="height:80px">
+            <canvas id="cRSI" role="img" aria-label="RSI圖"></canvas>
+          </div>
+        </div>
+
+        <!-- CCI -->
+        <div class="cbox">
+          <div class="chdr">
+            <span class="tt">CCI 20</span>
+            <span style="color:var(--dn)">— +100 超買</span>
+            <span style="color:var(--up)">— -100 超賣</span>
+          </div>
+          <div class="cbody" style="height:80px">
+            <canvas id="cCCI" role="img" aria-label="CCI圖"></canvas>
+          </div>
+        </div>
+
+        <!-- 三大法人買賣超 -->
+        <div class="cbox">
+          <div class="chdr">
+            <span class="tt">三大法人 買賣超</span>
+            <span class="ld" style="background:var(--for)"></span><span>外資</span>
+            <span class="ld" style="background:var(--inv)"></span><span>投信</span>
+            <span class="ld" style="background:var(--dlr)"></span><span>自營</span>
+            <span class="tag" id="chipTag">真實資料</span>
+          </div>
+          <div class="cbody" style="height:100px">
+            <canvas id="cChip" role="img" aria-label="三大法人買賣超圖"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT SIDEBAR: CHIP INFO -->
+      <div class="chip-side" id="chipSide">
+        <div>
+          <div class="slbl">三大法人（近5日）</div>
+          <div class="crow"><span class="cl">外資</span><span class="cv buy" id="cp_f">—</span></div>
+          <div class="crow"><span class="cl">投信</span><span class="cv buy" id="cp_i">—</span></div>
+          <div class="crow"><span class="cl">自營商</span><span class="cv" id="cp_d">—</span></div>
+        </div>
+        <div>
+          <div class="slbl">近10日累積</div>
+          <div class="crow"><span class="cl">外資10日</span><span class="cv buy" id="cp_f10">—</span></div>
+          <div class="crow"><span class="cl">投信10日</span><span class="cv buy" id="cp_i10">—</span></div>
+        </div>
+
+        <div id="holdingSection" style="display:none">
+          <div class="slbl">外資持股</div>
+          <div class="bwrap">
+            <div class="blbl">
+              <span style="color:var(--for)">外資佔比</span>
+              <span id="hp_for" style="font-family:monospace">—%</span>
+            </div>
+            <div class="bbg"><div class="bfill" id="hb_for" style="background:var(--for);width:0%"></div></div>
+          </div>
+          <div class="bwrap">
+            <div class="blbl">
+              <span style="color:var(--inv)">前10大</span>
+              <span id="hp_top" style="font-family:monospace">—%</span>
+            </div>
+            <div class="bbg"><div class="bfill" id="hb_top" style="background:var(--inv);width:0%"></div></div>
+          </div>
+        </div>
+
+        <div id="instSection" style="display:none">
+          <div class="slbl">機構持股前5</div>
+          <div id="instList"></div>
+        </div>
+
+        <div class="divr"></div>
+        <div>
+          <div class="slbl">技術數值</div>
+          <div class="crow"><span class="cl">MA17</span><span class="cv" id="ti_m17">—</span></div>
+          <div class="crow"><span class="cl">MA78</span><span class="cv" id="ti_m78">—</span></div>
+          <div class="crow"><span class="cl">RSI</span><span class="cv" id="ti_rsi">—</span></div>
+          <div class="crow"><span class="cl">CCI</span><span class="cv" id="ti_cci">—</span></div>
+          <div class="crow"><span class="cl">DIF</span><span class="cv" id="ti_dif">—</span></div>
+          <div class="crow"><span class="cl">DEA</span><span class="cv" id="ti_dea">—</span></div>
+          <div class="crow"><span class="cl">MA差%</span><span class="cv" id="ti_gap">—</span></div>
+        </div>
+        <div class="divr"></div>
+        <div>
+          <div class="slbl">條件判斷</div>
+          <div class="cond-row"><span class="cn">MA黃金交叉</span><span class="cv2" id="cd_ma">—</span></div>
+          <div class="cond-row"><span class="cn">MACD交叉</span><span class="cv2" id="cd_macd">—</span></div>
+          <div class="cond-row"><span class="cn">RSI翻揚</span><span class="cv2" id="cd_rsi">—</span></div>
+          <div id="sigLabel" style="margin-top:6px;padding:7px 8px;border-radius:6px;
+            font-size:11px;font-weight:500;text-align:center;color:var(--muted)">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = "";  // 同源，空字串即可
+Chart.register(...Chart.registerables);
+
+let mkt = "TW", period = "3mo", charts = {}, screenResults = [];
+let sigFilters = new Set(["s3","s2","sg","sd"]);
+let activeSectors = new Set();
+
+// ── 初始化族群chips ────────────────────────────
+async function initSectors() {
+  try {
+    const r = await fetch(`${API}/api/sectors?market=${mkt}`);
+    const d = await r.json();
+    const wrap = document.getElementById("sectorChips");
+    wrap.innerHTML = "";
+    d.sectors.forEach(s => {
+      const el = document.createElement("div");
+      el.className = "chip on";
+      el.textContent = s;
+      el.dataset.sec = s;
+      activeSectors.add(s);
+      el.onclick = () => {
+        el.classList.toggle("on");
+        activeSectors.has(s) ? activeSectors.delete(s) : activeSectors.add(s);
+      };
+      wrap.appendChild(el);
+    });
+  } catch(e) { console.warn("sectors:", e); }
+}
+
+function setMkt(m, el) {
+  mkt = m;
+  document.querySelectorAll(".mkt").forEach(b => b.classList.remove("active"));
+  el.classList.add("active");
+  activeSectors.clear();
+  initSectors();
+  document.getElementById("resultArea").innerHTML =
+    `<div class="empty"><div style="font-size:24px;opacity:.2">◈</div><div>切換市場，請重新執行選股</div></div>`;
+}
+
+function setPeriod(p, el) {
+  period = p;
+  document.querySelectorAll(".pb").forEach(b => b.classList.remove("active"));
+  el.classList.add("active");
+  const id = document.getElementById("stkId").textContent;
+  if (id && id !== "—") loadChart(id.replace(".TW",""));
+}
+
+function switchTab(tab, el) {
+  document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
+  el.classList.add("active");
+}
+
+function toggleSigFilter(cls, el) {
+  el.classList.toggle("on");
+  sigFilters.has(cls) ? sigFilters.delete(cls) : sigFilters.add(cls);
+  renderResults();
+}
+
+// ── 選股執行 ──────────────────────────────────
+async function runScreen() {
+  const btn = document.getElementById("runBtn");
+  const txt = document.getElementById("runTxt");
+  btn.disabled = true; txt.textContent = "篩選中...";
+  showOverlay("正在篩選，約需 1-2 分鐘...");
+
+  const sectors = [...activeSectors].join(",");
+  try {
+    const r = await fetch(`${API}/api/screen?market=${mkt}&sectors=${encodeURIComponent(sectors)}`);
+    const d = await r.json();
+    screenResults = d.results || [];
+    document.getElementById("screenLbl").textContent = `${d.count} 檔符合`;
+    renderResults();
+  } catch(e) {
+    alert("選股失敗：" + e.message);
+  } finally {
+    btn.disabled = false; txt.textContent = "▶ 執行選股";
+    hideOverlay();
+  }
+}
+
+const SIG_MAP = {
+  "條件三中三":   {cls:"s3", label:"★ 三中三"},
+  "條件三中二":   {cls:"s2", label:"◎ 三中二"},
+  "即將黃金交叉": {cls:"sg", label:"▲ 即將黃金"},
+  "即將死亡交叉": {cls:"sd", label:"▼ 即將死亡"},
+};
+
+function renderResults() {
+  const area = document.getElementById("resultArea");
+  const filtered = screenResults.filter(r => {
+    const m = SIG_MAP[r.signal];
+    return m && sigFilters.has(m.cls);
+  });
+  if (!filtered.length) {
+    area.innerHTML = `<div class="empty"><div style="font-size:24px;opacity:.2">◈</div><div>無符合條件的股票</div></div>`;
+    return;
+  }
+  area.innerHTML = filtered.map(r => {
+    const m = SIG_MAP[r.signal] || {cls:"",label:r.signal};
+    return `<div class="scard" onclick="loadCard('${r.stock_id}','${r.ticker}')">
+      <div class="sc-id">${r.stock_id}</div>
+      <div class="sc-sec">${r.sector}</div>
+      <div class="sc-sig ${m.cls}">${m.label}</div>
+      <div class="sc-rsi">${r.rsi}</div>
+    </div>`;
+  }).join("");
+}
+
+function loadCard(stockId, ticker) {
+  document.querySelectorAll(".scard").forEach(c => c.classList.remove("sel"));
+  event.currentTarget.classList.add("sel");
+  document.getElementById("tickerInp").value = stockId;
+  loadChart(stockId);
+}
+
+function manualSearch() {
+  const v = document.getElementById("tickerInp").value.trim();
+  if (v) loadChart(v);
+}
+
+// ── 載入圖表資料 ──────────────────────────────
+async function loadChart(id) {
+  const ticker = (mkt === "TW" && !id.includes(".")) ? id : id;
+  showOverlay(`載入 ${ticker}...`);
+  try {
+    // 並行請求K線 + 籌碼
+    const [kRes, chipRes] = await Promise.all([
+      fetch(`${API}/api/kline?ticker=${ticker}&period=${period}&market=${mkt}`).then(r => r.json()),
+      mkt === "TW"
+        ? fetch(`${API}/api/chip/tw?ticker=${ticker}&days=60`).then(r => r.json())
+        : fetch(`${API}/api/chip/us?ticker=${ticker}`).then(r => r.json())
+    ]);
+
+    if (kRes.detail) throw new Error(kRes.detail);
+    updateInfoBar(kRes);
+    drawAllCharts(kRes);
+    updateChipSide(chipRes, kRes.signal, mkt);
+  } catch(e) {
+    alert("載入失敗：" + e.message);
+  } finally {
+    hideOverlay();
+  }
+}
+
+// ── 更新資訊列 ────────────────────────────────
+function updateInfoBar(d) {
+  document.getElementById("stkName").textContent = d.name || d.ticker;
+  document.getElementById("stkId").textContent   = d.ticker;
+  const isUp = d.change >= 0;
+  const fmt  = v => d.market === "US" ? "$" + (v||0).toFixed(2) : (v||0).toFixed(2);
+  const pe = document.getElementById("priceEl");
+  pe.textContent = fmt(d.last_close);
+  pe.className = "price " + (isUp ? "up" : "dn");
+  const ce = document.getElementById("chgEl");
+  ce.textContent = (isUp?"+":"") + d.change + " (" + (isUp?"+":"") + d.change_pct + "%)";
+  ce.className = "chg " + (isUp ? "up" : "dn");
+  document.getElementById("iOpen").textContent = fmt(d.open);
+  document.getElementById("iHigh").textContent = fmt(d.high);
+  document.getElementById("iLow").textContent  = fmt(d.low);
+  const vol = d.volume;
+  document.getElementById("iVol").textContent =
+    vol > 1e8 ? (vol/1e8).toFixed(1)+"億" : vol > 1e4 ? (vol/1e3).toFixed(0)+"K" : vol;
+
+  // 訊號
+  const sp = document.getElementById("sigPills");
+  const sig = d.signal;
+  if (sig && sig.type !== "觀察中") {
+    const m = SIG_MAP[sig.type] || {cls:"",label:sig.type};
+    sp.innerHTML = `<span class="spill ${m.cls}">${m.label}</span>`;
+  } else sp.innerHTML = "";
+}
+
+// ── 更新籌碼側欄 ──────────────────────────────
+function updateChipSide(chip, sig, market) {
+  // 技術指標
+  const s = sig || {};
+  document.getElementById("ti_m17").textContent = s.ma17?.toFixed(2) ?? "—";
+  document.getElementById("ti_m78").textContent = s.ma78?.toFixed(2) ?? "—";
+  document.getElementById("ti_rsi").textContent = s.rsi?.toFixed(1)  ?? "—";
+  document.getElementById("ti_dif").textContent = s.dif?.toFixed(4)  ?? "—";
+  document.getElementById("ti_dea").textContent = s.dea?.toFixed(4)  ?? "—";
+  const gap = s.gap_pct ?? null;
+  const ge = document.getElementById("ti_gap");
+  ge.textContent = gap !== null ? gap.toFixed(2)+"%" : "—";
+  ge.style.color = gap > 0 ? "var(--up)" : "var(--dn)";
+
+  // CCI
+  document.getElementById("ti_cci").textContent = "見圖";
+
+  // 條件判斷
+  const tick = v => v ? `<span style="color:var(--up)">✓</span>` : `<span style="color:var(--muted)">—</span>`;
+  document.getElementById("cd_ma").innerHTML   = tick(s.cond_ma);
+  document.getElementById("cd_macd").innerHTML = tick(s.cond_macd);
+  document.getElementById("cd_rsi").innerHTML  = tick(s.cond_rsi);
+
+  const sl = document.getElementById("sigLabel");
+  if (s.type && s.type !== "觀察中") {
+    const m = SIG_MAP[s.type] || {};
+    const bgMap = {s3:"rgba(34,197,94,.12)",s2:"rgba(59,130,246,.12)",sg:"rgba(251,191,36,.12)",sd:"rgba(239,68,68,.12)"};
+    const fgMap = {s3:"#22c55e",s2:"#60a5fa",sg:"#fbbf24",sd:"#ef4444"};
+    sl.style.background = bgMap[m.cls] || "var(--bg3)";
+    sl.style.color = fgMap[m.cls] || "var(--muted)";
+    sl.textContent = s.type;
+  } else {
+    sl.style.background = "var(--bg3)"; sl.style.color = "var(--muted)"; sl.textContent = "觀察中";
+  }
+
+  if (market === "TW") {
+    // 台股真實籌碼
+    document.getElementById("holdingSection").style.display = chip.holding ? "" : "none";
+    document.getElementById("instSection").style.display = "none";
+    const sm = chip.summary || {};
+
+    const fmtChip = v => {
+      if (v === undefined || v === null) return "—";
+      const n = parseInt(v) || 0;
+      const s = n > 0 ? "buy" : n < 0 ? "sell" : "";
+      const disp = n > 1e4 ? (n/1e4).toFixed(1)+"萬" : n.toLocaleString();
+      return `<span class="cv ${s}">${n > 0 ? "+" : ""}${disp}</span>`;
+    };
+    document.getElementById("cp_f").innerHTML  = fmtChip(sm.foreign_5d);
+    document.getElementById("cp_i").innerHTML  = fmtChip(sm.invest_5d);
+    document.getElementById("cp_d").innerHTML  = fmtChip(sm.dealer_5d);
+    document.getElementById("cp_f10").innerHTML = fmtChip(sm.foreign_10d);
+    document.getElementById("cp_i10").innerHTML = fmtChip(sm.invest_10d);
+
+    if (chip.holding) {
+      const fp = chip.holding.foreign_pct || 0;
+      const tp = chip.holding.top10_pct || 0;
+      document.getElementById("hp_for").textContent = fp.toFixed(1)+"%";
+      document.getElementById("hp_top").textContent = tp.toFixed(1)+"%";
+      document.getElementById("hb_for").style.width = Math.min(fp, 100)+"%";
+      document.getElementById("hb_top").style.width = Math.min(tp, 100)+"%";
+    }
+
+    document.getElementById("chipTag").textContent = "真實資料 FinMind";
+  } else {
+    // 美股籌碼
+    document.getElementById("holdingSection").style.display = "none";
+    document.getElementById("instSection").style.display = "";
+    document.getElementById("cp_f").textContent = "—";
+    document.getElementById("cp_i").textContent = "—";
+    document.getElementById("cp_d").textContent = "—";
+    document.getElementById("cp_f10").textContent = "—";
+    document.getElementById("cp_i10").textContent = "—";
+
+    const inst = chip.institutional || [];
+    const il = document.getElementById("instList");
+    il.innerHTML = inst.slice(0,5).map(h =>
+      `<div class="crow" style="flex-direction:column;align-items:start;gap:1px">
+        <span class="cl" style="font-size:9px;line-height:1.3">${h.name}</span>
+        <span class="cv buy" style="font-size:10px">${h.pct?.toFixed(2)}%</span>
+      </div>`
+    ).join("") || `<div class="crow"><span class="cl">無資料</span></div>`;
+
+    document.getElementById("chipTag").textContent = "Yahoo Finance";
+  }
+}
+
+// ── 圖表繪製 ──────────────────────────────────
+const BASE_OPT = {
+  responsive: true, maintainAspectRatio: false, animation: {duration: 350},
+  plugins: {
+    legend: {display: false},
+    tooltip: {mode:"index",intersect:false,
+      backgroundColor:"#181b24",borderColor:"#1e2130",borderWidth:1,
+      titleColor:"#8896b0",bodyColor:"#dde3f0",padding:8,
+      titleFont:{family:"JetBrains Mono"},bodyFont:{family:"JetBrains Mono",size:11}}
+  },
+  scales: {
+    x: {ticks:{maxTicksLimit:9,font:{size:9,family:"JetBrains Mono"},color:"#4e5a78"},
+        grid:{color:"rgba(255,255,255,.03)"}},
+    y: {ticks:{font:{size:9,family:"JetBrains Mono"},color:"#4e5a78"},
+        grid:{color:"rgba(255,255,255,.03)"},position:"right"}
+  }
+};
+
+function dc(id) { if(charts[id]){charts[id].destroy();delete charts[id];} }
+
+function drawAllCharts(d) {
+  const lb = d.dates, ohlc = d.ohlc, ind = d.indicators;
+  const cl = ohlc.close, op = ohlc.open, hi = ohlc.high, lo = ohlc.low, vo = ohlc.volume;
+
+  // K線
+  dc("candle");
+  charts.candle = new Chart(document.getElementById("cCandle").getContext("2d"), {
+    type: "bar",
+    data: { labels: lb, datasets: [
+      { type:"line", label:"收盤", data: cl, borderColor: cl.map((c,i)=> c >= (op[i]??c) ? "#22c55e":"#ef4444"),
+        borderWidth:1.5, pointRadius:0, tension:0, fill:false, order:0 },
+      { type:"line", label:"MA17", data: ind.ma17, borderColor:"#f59e0b",
+        borderWidth:1.5, pointRadius:0, tension:0.3, fill:false, order:1 },
+      { type:"line", label:"MA78", data: ind.ma78, borderColor:"#818cf8",
+        borderWidth:1.8, pointRadius:0, tension:0.3, fill:false, borderDash:[5,3], order:2 },
+      { type:"bar", label:"範圍", data: cl.map((c,i)=>({x:lb[i],y:[lo[i]??c,hi[i]??c]})),
+        backgroundColor: cl.map((c,i)=> c>=(op[i]??c) ? "rgba(34,197,94,.25)":"rgba(239,68,68,.25)"),
+        borderColor: cl.map((c,i)=> c>=(op[i]??c) ? "#22c55e":"#ef4444"),
+        borderWidth:1, barPercentage:0.4, order:3 }
+    ]},
+    options: {...BASE_OPT}
+  });
+
+  // 成交量
+  dc("vol");
+  charts.vol = new Chart(document.getElementById("cVol").getContext("2d"), {
+    type:"bar",
+    data:{ labels:lb, datasets:[{
+      data:vo, borderWidth:0, barPercentage:0.85,
+      backgroundColor: cl.map((c,i)=> i===0||c>=(cl[i-1]??c) ? "rgba(34,197,94,.55)":"rgba(239,68,68,.55)")
+    }]},
+    options:{...BASE_OPT, scales:{...BASE_OPT.scales,
+      y:{...BASE_OPT.scales.y,ticks:{...BASE_OPT.scales.y.ticks,
+        callback:v=>v>1e8?(v/1e8).toFixed(0)+"億":v>1e4?(v/1e3).toFixed(0)+"K":v}}}}
+  });
+
+  // MACD
+  dc("macd");
+  charts.macd = new Chart(document.getElementById("cMACD").getContext("2d"), {
+    type:"bar",
+    data:{ labels:lb, datasets:[
+      { type:"line", label:"DIF", data:ind.dif, borderColor:"#38bdf8", borderWidth:1.5, pointRadius:0, tension:0.3, fill:false, order:0 },
+      { type:"line", label:"DEA", data:ind.dea, borderColor:"#fb923c", borderWidth:1.5, pointRadius:0, tension:0.3, fill:false, borderDash:[4,3], order:1 },
+      { type:"bar",  label:"MACD", data:ind.hist,
+        backgroundColor:ind.hist.map(v=>(v??0)>=0?"rgba(34,197,94,.55)":"rgba(239,68,68,.55)"),
+        borderWidth:0, barPercentage:0.85, order:2 }
+    ]},
+    options:{...BASE_OPT}
+  });
+
+  // RSI
+  dc("rsi");
+  charts.rsi = new Chart(document.getElementById("cRSI").getContext("2d"), {
+    type:"line",
+    data:{ labels:lb, datasets:[{
+      data:ind.rsi, borderColor:"#c084fc", borderWidth:1.5, pointRadius:0, tension:0.4, fill:false
+    }]},
+    options:{...BASE_OPT, scales:{
+      x:BASE_OPT.scales.x,
+      y:{...BASE_OPT.scales.y, min:0, max:100,
+         ticks:{stepSize:20,font:{size:9,family:"JetBrains Mono"},color:"#4e5a78"},
+         afterDataLimits(a){a.min=0;a.max=100;}}
+    }}
+  });
+
+  // CCI
+  dc("cci");
+  charts.cci = new Chart(document.getElementById("cCCI").getContext("2d"), {
+    type:"line",
+    data:{ labels:lb, datasets:[{
+      data:ind.cci, borderColor:"#34d399", borderWidth:1.5, pointRadius:0, tension:0.3, fill:false
+    }]},
+    options:{...BASE_OPT}
+  });
+}
+
+function drawChipChart(dates, foreign, invest, dealer) {
+  dc("chip");
+  const cumsum = arr => arr.reduce((a,v,i)=>{a.push((a[i-1]||0)+v);return a;},[]);
+  charts.chip = new Chart(document.getElementById("cChip").getContext("2d"), {
+    type:"line",
+    data:{ labels:dates, datasets:[
+      { label:"外資累計", data:cumsum(foreign), borderColor:"#34d399", borderWidth:1.5, pointRadius:0, tension:0.4, fill:false },
+      { label:"投信累計", data:cumsum(invest),  borderColor:"#f472b6", borderWidth:1.5, pointRadius:0, tension:0.4, fill:false },
+      { label:"自營累計", data:cumsum(dealer),  borderColor:"#a78bfa", borderWidth:1.2, pointRadius:0, tension:0.4, fill:false, borderDash:[4,3] },
+    ]},
+    options:{...BASE_OPT}
+  });
+}
+
+// 更新籌碼圖（台股用真實，美股用折線替代）
+function updateChipSide(chip, sig, market) {
+  // (same as above — combined into one call)
+  const s = sig || {};
+  const fmt2 = v => v != null ? v.toFixed(2) : "—";
+  document.getElementById("ti_m17").textContent = fmt2(s.ma17);
+  document.getElementById("ti_m78").textContent = fmt2(s.ma78);
+  document.getElementById("ti_rsi").textContent = s.rsi != null ? s.rsi.toFixed(1) : "—";
+  document.getElementById("ti_dif").textContent = s.dif != null ? s.dif.toFixed(4) : "—";
+  document.getElementById("ti_dea").textContent = s.dea != null ? s.dea.toFixed(4) : "—";
+  const gap = s.gap_pct;
+  const ge = document.getElementById("ti_gap");
+  ge.textContent = gap != null ? gap.toFixed(2)+"%" : "—";
+  if(gap != null) ge.style.color = gap > 0 ? "var(--up)" : "var(--dn)";
+
+  document.getElementById("ti_cci").textContent = "見圖表";
+
+  const tick = v => v ? `<span style="color:var(--up);font-size:13px">✓</span>`
+                      : `<span style="color:var(--muted)">—</span>`;
+  document.getElementById("cd_ma").innerHTML   = tick(s.cond_ma);
+  document.getElementById("cd_macd").innerHTML = tick(s.cond_macd);
+  document.getElementById("cd_rsi").innerHTML  = tick(s.cond_rsi);
+
+  const sl = document.getElementById("sigLabel");
+  const sigBg = {s3:"rgba(34,197,94,.12)",s2:"rgba(59,130,246,.12)",sg:"rgba(251,191,36,.12)",sd:"rgba(239,68,68,.12)"};
+  const sigFg = {s3:"#22c55e",s2:"#60a5fa",sg:"#fbbf24",sd:"#ef4444"};
+  if (s.type && s.type !== "觀察中") {
+    const m = SIG_MAP[s.type] || {};
+    sl.style.background = sigBg[m.cls] || "var(--bg3)";
+    sl.style.color = sigFg[m.cls] || "var(--muted)";
+    sl.textContent = s.type;
+  } else { sl.style.background="var(--bg3)"; sl.style.color="var(--muted)"; sl.textContent="觀察中"; }
+
+  if (market === "TW") {
+    document.getElementById("holdingSection").style.display = chip.holding ? "" : "none";
+    document.getElementById("instSection").style.display = "none";
+    const sm = chip.summary || {};
+    const fmtC = v => {
+      if(v==null) return "—";
+      const n = parseInt(v)||0, cls = n>0?"buy":n<0?"sell":"";
+      const abs = Math.abs(n), disp = abs>1e4?(abs/1e4).toFixed(1)+"萬":abs.toLocaleString();
+      return `<span class="cv ${cls}">${n>0?"+":""}${disp}</span>`;
+    };
+    document.getElementById("cp_f").innerHTML  = fmtC(sm.foreign_5d);
+    document.getElementById("cp_i").innerHTML  = fmtC(sm.invest_5d);
+    document.getElementById("cp_d").innerHTML  = fmtC(sm.dealer_5d);
+    document.getElementById("cp_f10").innerHTML = fmtC(sm.foreign_10d);
+    document.getElementById("cp_i10").innerHTML = fmtC(sm.invest_10d);
+
+    if (chip.holding) {
+      const fp = chip.holding.foreign_pct||0, tp = chip.holding.top10_pct||0;
+      document.getElementById("hp_for").textContent = fp.toFixed(1)+"%";
+      document.getElementById("hp_top").textContent = tp.toFixed(1)+"%";
+      document.getElementById("hb_for").style.width = Math.min(fp,100)+"%";
+      document.getElementById("hb_top").style.width = Math.min(tp,100)+"%";
+    }
+    // 畫籌碼折線
+    if (chip.dates && chip.foreign) {
+      drawChipChart(chip.dates, chip.foreign, chip.invest||[], chip.dealer||[]);
+    }
+    document.getElementById("chipTag").textContent = "真實資料 FinMind";
+  } else {
+    document.getElementById("holdingSection").style.display = "none";
+    document.getElementById("instSection").style.display = "";
+    ["cp_f","cp_i","cp_d","cp_f10","cp_i10"].forEach(id => document.getElementById(id).textContent="—");
+    const inst = chip.institutional||[];
+    document.getElementById("instList").innerHTML = inst.slice(0,5).map(h=>
+      `<div class="crow" style="flex-direction:column;align-items:start;gap:1px">
+        <span class="cl" style="font-size:9px;line-height:1.4;white-space:normal">${h.name}</span>
+        <span class="cv buy" style="font-size:10px">${(h.pct||0).toFixed(2)}%</span>
+      </div>`).join("") || `<div class="crow"><span class="cl">無資料</span></div>`;
+    // 美股用機構持股百分比模擬折線
+    if (inst.length) {
+      const names = inst.slice(0,3).map(h=>h.name.split(" ")[0]);
+      dc("chip");
+      charts.chip = new Chart(document.getElementById("cChip").getContext("2d"), {
+        type:"bar",
+        data:{ labels:names,
+          datasets:[{ data:inst.slice(0,3).map(h=>h.pct||0),
+            backgroundColor:["rgba(52,211,153,.6)","rgba(244,114,182,.6)","rgba(167,139,250,.6)"],
+            borderWidth:0, barPercentage:0.6 }]},
+        options:{...BASE_OPT,
+          scales:{...BASE_OPT.scales,
+            x:{...BASE_OPT.scales.x,ticks:{...BASE_OPT.scales.x.ticks,maxRotation:0}},
+            y:{...BASE_OPT.scales.y,ticks:{...BASE_OPT.scales.y.ticks,
+              callback:v=>v.toFixed(1)+"%"}}}}
+      });
+    }
+    document.getElementById("chipTag").textContent = "Yahoo Finance";
+  }
+}
+
+// ── Overlay ───────────────────────────────────
+function showOverlay(msg) {
+  document.getElementById("lmsg").textContent = msg||"載入中...";
+  document.getElementById("overlay").classList.remove("hide");
+}
+function hideOverlay() { document.getElementById("overlay").classList.add("hide"); }
+
+// ── 啟動 ──────────────────────────────────────
+window.addEventListener("load", async () => {
+  hideOverlay();
+  await initSectors();
+  // 預設載入台積電
+  document.getElementById("tickerInp").value = "2330";
+  loadChart("2330");
+});
+</script>
+</body>
+</html>
