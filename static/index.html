@@ -387,11 +387,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);
 
 <script>
 const API = "";  // 同源，空字串即可
-Chart.register(...Chart.registerables);
-
-let mkt = "TW", period = "3mo", charts = {}, screenResults = [];
-let sigFilters = new Set(["s3","s2","sg","sd"]);
-let activeSectors = new Set();
+var mkt = "TW", period = "3mo", charts = {}, screenResults = [];
+var sigFilters = new Set(["s3","s2","sg","sd"]);
+var activeSectors = new Set();
 
 // ── 初始化族群chips ────────────────────────────
 async function initSectors() {
@@ -860,6 +858,7 @@ function hideOverlay() { document.getElementById("overlay").classList.add("hide"
 
 // ── 啟動 ──────────────────────────────────────
 window.addEventListener("load", async () => {
+  try { Chart.register(...Chart.registerables); } catch(e) { console.warn("Chart.js:", e); }
   hideOverlay();
   await initSectors();
   // 預設載入台積電
