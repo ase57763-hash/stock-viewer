@@ -39,7 +39,7 @@ def get_sj():
         return None
     try:
         import shioaji as sj
-        api = sj.Shioaji()
+        api = sj.Shioaji(simulation=True)
         api.login(api_key=SHIOAJI_KEY, secret_key=SHIOAJI_SEC,
                   receive_window=60000)
         _sj_api = api
