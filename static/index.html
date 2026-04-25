@@ -669,6 +669,12 @@ function drawAllCharts(d) {
 
   // Convert dates to timestamps
   const times = lb.map((s, i) => {
+    if (!s) return 0;
+    if (s.length === 10 && s.includes("-")) {
+      // YYYY-MM-DD format from Shioaji
+      return Math.floor(new Date(s + "T00:00:00").getTime()/1000);
+    }
+    // MM/DD format
     const parts = s.split("/");
     const now = new Date();
     const m = parseInt(parts[0]), day = parseInt(parts[1]);
