@@ -39,7 +39,7 @@ def get_sj():
         return None
     try:
         import shioaji as sj
-        api = sj.Shioaji(simulation=True)
+        api = sj.Shioaji()
         api.login(api_key=SHIOAJI_KEY, secret_key=SHIOAJI_SEC,
                   receive_window=60000)
         _sj_api = api
@@ -116,8 +116,10 @@ def fetch_tw_kline(ticker: str, period: str) -> pd.DataFrame:
     if contract is None:
         raise Exception(f"找不到台股代碼：{ticker}")
 
+    import shioaji as sj
     kbars = api.kbars(contract=contract,
                       start=start, end=end,
+                      resolution="1D",
                       timeout=30000)
     df = pd.DataFrame({**kbars})
     if df.empty:
@@ -128,6 +130,8 @@ def fetch_tw_kline(ticker: str, period: str) -> pd.DataFrame:
         "Open":"Open","High":"High","Low":"Low",
         "Close":"Close","Volume":"Volume"
     })
+    # 去除重複日期，保留最後一筆
+    df = df[~df["ts"].duplicated(keep="last")]
     df.set_index("ts", inplace=True)
     return df
 
@@ -162,6 +166,7 @@ def fetch_us_kline(ticker: str, period: str) -> pd.DataFrame:
 
     kbars = api.kbars(contract=contract,
                       start=start, end=end,
+                      resolution="1D",
                       timeout=30000)
     df = pd.DataFrame({**kbars})
     if df.empty:
@@ -172,6 +177,7 @@ def fetch_us_kline(ticker: str, period: str) -> pd.DataFrame:
         "Open":"Open","High":"High","Low":"Low",
         "Close":"Close","Volume":"Volume"
     })
+    df = df[~df["ts"].duplicated(keep="last")]
     df.set_index("ts", inplace=True)
     return df
 
@@ -197,7 +203,7 @@ async def kline(ticker:str=Query(...), period:str=Query("6mo"), market:str=Query
         dif_s, dea_s, hist_s = macd_calc(cl)
         rs = rsi_calc(cl); cc = cci_calc(hi, lo, cl)
 
-        dates = [d.strftime("%m/%d") for d in df.index]
+        dates = [d.strftime("%Y-%m-%d") for d in df.index]
         last  = safe(cl.iloc[-1]); prev = safe(cl.iloc[-2]) if len(cl)>1 else last
         chg   = round(last-prev, 2) if last and prev else 0
         chg_pct = round(chg/prev*100, 2) if prev else 0
