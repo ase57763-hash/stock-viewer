@@ -201,7 +201,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);
     <div class="ph">
       <span class="lbl" id="screenLbl">選股結果</span>
       <button class="btn" id="runBtn" onclick="runScreen()">
-        <span id="runTxt">▶ 執行選股</span>
+        <span id="runTxt">▶ 讀取結果</span>
       </button>
     </div>
 
@@ -444,24 +444,28 @@ function toggleSigFilter(cls, el) {
   renderResults();
 }
 
-// ── 選股執行 ──────────────────────────────────
+// ── 選股結果（從 Google 試算表讀取）─────────
 async function runScreen() {
   const btn = document.getElementById("runBtn");
   const txt = document.getElementById("runTxt");
-  btn.disabled = true; txt.textContent = "篩選中...";
-  showOverlay("正在篩選，約需 1-2 分鐘...");
-
-  const sectors = [...activeSectors].join(",");
+  btn.disabled = true; txt.textContent = "讀取中...";
+  showOverlay("從 Google 試算表讀取選股結果...");
+  const marketLabel = mkt === "TW" ? "台股" : "美股";
   try {
-    const r = await fetch(`${API}/api/screen?market=${mkt}&sectors=${encodeURIComponent(sectors)}`);
+    const r = await fetch(`${API}/api/screen/cached?market=${encodeURIComponent(marketLabel)}`);
     const d = await r.json();
+    if (d.error && !d.results) {
+      alert("讀取失敗：" + d.error + "\n\n請先在電腦/Mac 執行選股系統，讓資料推送到 Google 試算表。");
+      return;
+    }
     screenResults = d.results || [];
-    document.getElementById("screenLbl").textContent = `${d.count} 檔符合`;
+    const dateStr = d.date ? " (" + d.date + ")" : "";
+    document.getElementById("screenLbl").textContent = screenResults.length + " 檔符合" + dateStr;
     renderResults();
   } catch(e) {
-    alert("選股失敗：" + e.message);
+    alert("讀取失敗：" + e.message);
   } finally {
-    btn.disabled = false; txt.textContent = "▶ 執行選股";
+    btn.disabled = false; txt.textContent = "▶ 讀取結果";
     hideOverlay();
   }
 }
